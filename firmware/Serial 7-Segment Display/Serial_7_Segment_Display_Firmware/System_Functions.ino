@@ -1,12 +1,12 @@
-/* 
+/*
  Serial 7 Segment Display : System Functions
 
  See main file for license and information.
 
  These are all the lower level system functions that allow Serial 7 Segment to run
- 
+
  This includes the ISRs and setup functions.
- 
+
  */
 
 // SPI byte received interrupt routine
@@ -42,7 +42,7 @@ ISR(TIMER1_COMPA_vect)
 // But not quite: serialEvent is only called after each loop() interation
 void serialEvent()
 {
-  while (Serial.available()) 
+  while (Serial.available())
   {
     unsigned int i = (buffer.head + 1) % BUFFER_SIZE;  // read buffer head position and increment
     unsigned char c = Serial.read();  // Read data byte into c, from UART0 data register
@@ -69,7 +69,7 @@ void twiReceive(int rxCount)
     {
       buffer.data[buffer.head] = c;  // Store the data into the buffer's head
       buffer.head = i;  // update buffer head, since we stored new data
-    }    
+    }
   }
 }
 
@@ -102,7 +102,7 @@ void setupDisplay()
   display.cursor = 0;  // Set cursor to first (left-most) digit
 
   buffer.head = 0;  // Initialize buffer values
-  buffer.tail = 0;  
+  buffer.tail = 0;
 
   //Declare what pins are connected to the digits
 
@@ -130,12 +130,12 @@ void setupDisplay()
   //transistor configuration we are using, we need inverted signals:
   //1 to turn a digit on, 0 to turn a segment on
   //This is the same as a common anode setup.
-  int displayType = COMMON_ANODE; 
+  int displayType = COMMON_ANODE;
 
   //Initialize the SevSeg library with all the pins needed for this type of display
-  myDisplay.Begin(displayType, numberOfDigits, 
-  digit1, digit2, digit3, digit4, 
-  segA, segB, segC, segD, segE, segF, segG, 
+  myDisplay.Begin(displayType, numberOfDigits,
+  digit1, digit2, digit3, digit4,
+  segA, segB, segC, segD, segE, segF, segG,
   segDP);
 
 #endif
@@ -169,15 +169,15 @@ void setupDisplay()
   int displayType = COMMON_ANODE; //SparkFun 10mm height displays are common anode
 
   //Initialize the SevSeg library with all the pins needed for this type of display
-  myDisplay.Begin(displayType, numberOfDigits, 
-  digit1, digit2, digit3, digit4, 
-  digitColon, digitApostrophe, 
-  segA, segB, segC, segD, segE, segF, segG, 
+  myDisplay.Begin(displayType, numberOfDigits,
+  digit1, digit2, digit3, digit4,
+  digitColon, digitApostrophe,
+  segA, segB, segC, segD, segE, segF, segG,
   segDP,
   segmentColon, segmentApostrophe);
 #endif
   //-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
-  
+
   //This pinout is for the original Serial 7 Segment Shield
   //-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
 #if DISPLAY_TYPE == S7SHIELD
@@ -198,12 +198,12 @@ void setupDisplay()
 
   int numberOfDigits = 4; //Do you have a 2 or 4 digit display?
 
-  int displayType = COMMON_CATHODE; 
+  int displayType = COMMON_CATHODE;
 
   //Initialize the SevSeg library with all the pins needed for this type of display
-  myDisplay.Begin(displayType, numberOfDigits, 
-  digit1, digit2, digit3, digit4, 
-  segA, segB, segC, segD, segE, segF, segG, 
+  myDisplay.Begin(displayType, numberOfDigits,
+  digit1, digit2, digit3, digit4,
+  segA, segB, segC, segD, segE, segF, segG,
   segDP);
 #endif
   //-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
@@ -262,25 +262,25 @@ void setupUART()
     break;
   default:
     //We should never reach this state, but if we do
-    Serial.begin(9600);    
+    Serial.begin(9600);
     break;
   }
 
 }
 
-//This function reads the MODE setting from EEPROM and checks to see if there are 
-//any hardware settings (closed jumpers for example) that puts the device into a 
+//This function reads the MODE setting from EEPROM and checks to see if there are
+//any hardware settings (closed jumpers for example) that puts the device into a
 //certain mode. Available modes are regular, analog meter, and counter modes.
 void setupMode()
 {
   deviceMode = EEPROM.read(MODE_ADDRESS); // Read the mode the device should be in
-  
+
   if (deviceMode > MODE_COUNTER)
   { // If the mode is invalid, goto default mode
     deviceMode = MODE_DEFAULT;
     EEPROM.write(MODE_ADDRESS, MODE_DEFAULT);
   }
-  
+
 #if DISPLAY_TYPE == OPENSEGMENT
   //See if any solder jumpers have been closed
 
@@ -288,10 +288,10 @@ void setupMode()
   //crystal is there) so let's do it the old school way
   //digitalWrite(JUMPER_COUNTER, HIGH); //Enable internal pullup
   //pinMode(JUMPER_METER, INPUT_PULLUP);
-  
+
   DDRB &= 0b00111111; //Set PB7 and PB6 to inputs
   PORTB |= 0b11000000; //Enable external pull ups
-  
+
   Serial.println("Jumper check:");
   if( (PINB & 1<<6) == 0) //If counter pin is low
   {
@@ -337,9 +337,9 @@ void setupTWI()
 {
   unsigned char twiAddress;
 
-  twiAddress = EEPROM.read(TWI_ADDRESS_ADDRESS);  // read the TWI address from 
+  twiAddress = EEPROM.read(TWI_ADDRESS_ADDRESS);  // read the TWI address from
 
-  if ((twiAddress == 0) || (twiAddress > 0x7F))  
+  if ((twiAddress == 0) || (twiAddress > 0x7F))
   { // If the TWI address is invalid, use a default address
     twiAddress = TWI_ADDRESS_DEFAULT;
     EEPROM.write(TWI_ADDRESS_ADDRESS, TWI_ADDRESS_DEFAULT);
@@ -370,7 +370,7 @@ void checkEmergencyReset(void)
 
     constantDisplay("----", 200);
     if(digitalRead(0) == HIGH) return; //Check to see if RX is not low anymore
-  }		
+  }
 
   //If we make it here, then RX pin stayed low the whole time
   setDefaultSettings(); //Reset baud rate, brightness setting and TWI address

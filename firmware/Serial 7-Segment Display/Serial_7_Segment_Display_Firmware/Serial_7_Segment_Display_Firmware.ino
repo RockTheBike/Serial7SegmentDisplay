@@ -5,20 +5,20 @@
  License: This code is beerware: feel free to use it, with or without attribution,
  in your own projects. If you find it helpful, buy me a beer next time you see me
  at the local pub.
- 
+
  Description: This firmware goes on the SparkFun Serial 7-Segment displays.
  https://www.sparkfun.com/search/results?term=serial+7+segment&what=products
- 
+
  You can send the display serial data over either UART, SPI, or I2C. It'll
- sequentially display what it reads. There are special commands to control 
- individual segments, clear the display, reset the cursor, adjust the display's 
+ sequentially display what it reads. There are special commands to control
+ individual segments, clear the display, reset the cursor, adjust the display's
  brightness, UART baud rate, i2c address or factory reset.
- 
- Note: To use the additional pins, PB6 and PB7, on the ATmega328 we have to add 
- some maps to the pins_arduino.h file. This allows Arduino to identify PB6 as 
- digital pin 22, and PB7 as digital pin 23. Because the Serial 7-Segment runs on 
+
+ Note: To use the additional pins, PB6 and PB7, on the ATmega328 we have to add
+ some maps to the pins_arduino.h file. This allows Arduino to identify PB6 as
+ digital pin 22, and PB7 as digital pin 23. Because the Serial 7-Segment runs on
  the ATmega328's internal oscillator, these two pins open up for our use.
- 
+
  */
 #include <Wire.h>  // Handles I2C
 #include <EEPROM.h>  // Brightness, Baud rate, and I2C address are stored in EEPROM
@@ -51,21 +51,21 @@ struct dataBuffer
   unsigned char data[BUFFER_SIZE];  // THE data buffer
   unsigned int head;  // store new data at this index
   unsigned int tail;  // read oldest data from this index
-} 
+}
 buffer;  // our data buffer is creatively named - buffer
 
-// Struct for 4-digit, 7-segment display 
+// Struct for 4-digit, 7-segment display
 // Stores display value (digits),  decimal status (decimals) for each digit, and cursor for overall display
 struct display
 {
   char digits[4];
   unsigned char decimals;
   unsigned char cursor;
-} 
+}
 display;  // displays be displays
 
 void setup()
-{  
+{
   setupDisplay(); //Initialize display stuff (common cathode, digits, brightness, etc)
 
   //We need to check emergency after we have initialized the display so that we can use the display during an emergency reset
@@ -161,10 +161,10 @@ void displayCounter()
     {
       delay(1); //Check the pin 1 ms later - this is for debounce
       myDisplay.DisplayString(display.digits, 0); //Update display so that it doesn't blink
-      
+
       if(digitalRead(counterDecrement) == LOW)
       {
-        if(decrementCounted == false) //Only increment counter if this is a new pulse 
+        if(decrementCounted == false) //Only increment counter if this is a new pulse
         {
           counter--;
           decrementCounted = true; //We have now counted this pulse
@@ -181,7 +181,7 @@ void displayCounter()
     //char tempString[10]; //Used for sprintf
     sprintf(display.digits, "%4d", counter); //Convert counter into a string that is right adjusted
 
-    
+
     //int tempCounter = counter;
     // for(int x = 0 ; x < 4 ; x++)
     // {
@@ -192,7 +192,7 @@ void displayCounter()
     myDisplay.DisplayString(display.digits, 0); //(numberToDisplay, no decimals during counter mode)
 
     serialEvent(); //Check the serial buffer for new data
-  }  
+  }
 }
 
 //Do nothing but analog reads
@@ -224,12 +224,12 @@ void displayAnalog()
     myDisplay.DisplayString(display.digits, display.decimals); //(numberToDisplay, decimal point location)
 
     serialEvent(); //Check the serial buffer for new data
-  }  
+  }
 }
 
-// updateBufferData(): This beast of a function is called by the Timer 1 ISR if there is new data in the buffer. 
+// updateBufferData(): This beast of a function is called by the Timer 1 ISR if there is new data in the buffer.
 // If the data controls display data, that'll be updated.
-// If the data relates to a command, commandmode will be set accordingly or a command 
+// If the data relates to a command, commandmode will be set accordingly or a command
 // will be executed from this function.
 void updateBufferData()
 {
@@ -263,7 +263,7 @@ void updateBufferData()
       EEPROM.write(BRIGHTNESS_ADDRESS, c);    // write the new value to EEPROM
       myDisplay.SetBrightness(c); //Set the display to this brightness level
       break;
-    case BAUD_CMD:  // Baud setting mode 
+    case BAUD_CMD:  // Baud setting mode
       EEPROM.write(BAUD_ADDRESS, c);  // Update EEPROM with new baud setting
       setupUART(); //Checks to see if this baud rate is valid and turns on UART at this speed
       break;
@@ -295,7 +295,7 @@ void updateBufferData()
       display.digits[3] = c | 0x80;
       break;
     }
-    // Leaving commandMode 
+    // Leaving commandMode
     // !!! If the commandMode isn't a valid command, we'll leave command mode, should be checked below?
     commandMode = 0;
   }
