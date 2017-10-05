@@ -25,6 +25,7 @@
 #include "settings.h"  // Defines command bytes, EEPROM addresses, display data
 // This code uses the SevSeg library, which can be donwnloaded from:
 // https://github.com/sparkfun/SevSeg
+// git@github.com:sparkfun/SevSeg.git
 #include "SevSeg.h" //Library to control generic seven segment displays
 
 SevSeg myDisplay; //Create an instance of the object
@@ -36,7 +37,7 @@ SevSeg myDisplay; //Create an instance of the object
 #define S7S            1
 #define OPENSEGMENT    2
 #define S7SHIELD       3
-#define DISPLAY_TYPE OPENSEGMENT
+#define DISPLAY_TYPE   S7S
 
 //Global variables
 unsigned int analogValue6 = 0; //These are used in analog meter mode
