@@ -15,6 +15,14 @@
 // git@github.com:sparkfun/SevSeg.git
 #include "SevSeg.h" //Library to control generic seven segment displays
 
+#define BUTTON_DEBOUNCE_TIME 100 // milliseconds between acceptible button presses
+#define BUTTON_R             A4 // pin labeled on board as SDA
+#define BUTTON_L             A5 // pin labeled on board as SCL
+bool buttonLState = false;
+bool buttonRState = false;
+unsigned long lastLButtonEvent = 0; // time when last a button event happened
+unsigned long lastRButtonEvent = 0; // time when last a button event happened
+
 SevSeg myDisplay; //Create an instance of the object
 
 unsigned char commandMode = 0;  // Used to indicate if a commandMode byte has been received
@@ -43,6 +51,9 @@ void setup() {
   setupTimer();  // Setup timer to control interval reading from buffer
   Serial.begin(BAUDRATE);
 
+  pinMode(BUTTON_R,INPUT_PULLUP); // default to HIGH if not shorted to ground
+  pinMode(BUTTON_L,INPUT_PULLUP); // default to HIGH if not shorted to ground
+
   interrupts();  // Turn interrupts on, and les' go
 
   //Preload the display buffer with a default
@@ -56,6 +67,24 @@ void setup() {
 void loop() {
   myDisplay.DisplayString(display.digits, display.decimals); //(numberToDisplay, decimal point location)
   serialEvent(); //Check the serial buffer for new data
+  if ((digitalRead(BUTTON_L) != buttonLState) && (millis() - lastLButtonEvent > BUTTON_DEBOUNCE_TIME)) {
+    lastLButtonEvent = millis(); // reset counter
+    buttonLState = digitalRead(BUTTON_L);
+    if (! buttonLState) buttonLPressed(); // event of button being pressed
+  }
+  if ((digitalRead(BUTTON_R) != buttonRState) && (millis() - lastRButtonEvent > BUTTON_DEBOUNCE_TIME)) {
+    lastRButtonEvent = millis(); // reset counter
+    buttonRState = digitalRead(BUTTON_R);
+    if (! buttonRState) buttonRPressed(); // event of button being pressed
+  }
+}
+
+void buttonLPressed() {
+  Serial.println("LEFT!");
+}
+
+void buttonRPressed() {
+  Serial.println("RIGHT!");
 }
 
 // This is effectively the UART0 byte received interrupt routine
