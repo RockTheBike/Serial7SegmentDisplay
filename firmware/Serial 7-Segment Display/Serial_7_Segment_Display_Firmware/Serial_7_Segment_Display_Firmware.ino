@@ -18,15 +18,10 @@
 
 SevSeg myDisplay; //Create an instance of the object
 
-//Global variables
-unsigned int analogValue6 = 0; //These are used in analog meter mode
-unsigned int analogValue7 = 0;
-unsigned char deviceMode; // This variable is useds to select which mode the device should be in
 unsigned char commandMode = 0;  // Used to indicate if a commandMode byte has been received
 
 // Struct for circular data buffer data received over UART, SPI and I2C are all sent into a single buffer
-struct dataBuffer
-{
+struct dataBuffer {
   unsigned char data[BUFFER_SIZE];  // THE data buffer
   unsigned int head;  // store new data at this index
   unsigned int tail;  // read oldest data from this index
@@ -35,16 +30,14 @@ buffer;  // our data buffer is creatively named - buffer
 
 // Struct for 4-digit, 7-segment display
 // Stores display value (digits),  decimal status (decimals) for each digit, and cursor for overall display
-struct display
-{
+struct display {
   char digits[4];
   unsigned char decimals;
   unsigned char cursor;
 }
 display;  // displays be displays
 
-void setup()
-{
+void setup() {
   setupDisplay(); //Initialize display stuff (common cathode, digits, brightness, etc)
 
   //We need to check emergency after we have initialized the display so that we can use the display during an emergency reset
@@ -69,13 +62,11 @@ void loop() {
 // This is effectively the UART0 byte received interrupt routine
 // But not quite: serialEvent is only called after each loop() interation
 void serialEvent() {
-  while (Serial.available())
-  {
+  while (Serial.available()) {
     unsigned int i = (buffer.head + 1) % BUFFER_SIZE;  // read buffer head position and increment
     unsigned char c = Serial.read();  // Read data byte into c, from UART0 data register
 
-    if (i != buffer.tail)  // As long as the buffer isn't full, we can store the data in buffer
-    {
+    if (i != buffer.tail) { // As long as the buffer isn't full, we can store the data in buffer
       buffer.data[buffer.head] = c;  // Store the data into the buffer's head
       buffer.head = i;  // update buffer head, since we stored new data
     }
@@ -86,31 +77,22 @@ void serialEvent() {
 // If the data controls display data, that'll be updated.
 // If the data relates to a command, commandmode will be set accordingly or a command
 // will be executed from this function.
-void updateBufferData()
-{
-
+void updateBufferData() {
   // First we read from the oldest data in the buffer
   unsigned char c = buffer.data[buffer.tail];
   buffer.tail = (buffer.tail + 1) % BUFFER_SIZE;  // and update the tail to the next oldest
 
   // if the last byte received wasn't a command byte (commandMode=0)
   // and if the data is displayable (0-0x76 or 0x78), the display will be updated
-  if ((commandMode == 0) && ((c < 0x76) || (c == 0x78)))
-  {
+  if ((commandMode == 0) && ((c < 0x76) || (c == 0x78))) {
     display.digits[display.cursor] = c;  // just store the read data into the cursor-active digit
     display.cursor = ((display.cursor + 1) % 4);  // Increment cursor, set back to 0 if necessary
-  }
-  else if ((c == RESET_CMD) && (!commandMode))  // If the received char is the reset command
-  {
-    for(int i = 0 ; i < 4 ; i++)
-      display.digits[i] = 'x';  // clear all digits
+  } else if ((c == RESET_CMD) && (!commandMode)) { // If the received char is the reset command
+    for(int i = 0 ; i < 4 ; i++) display.digits[i] = 'x';  // clear all digits
     display.decimals = 0;  // clear all decimals
     display.cursor = 0;  // reset the cursor
-  }
-  else if (commandMode != 0)  // Otherwise, if data is non-displayable and we're in a commandMode
-  {
-    switch (commandMode)
-    {
+  } else if (commandMode != 0) { // Otherwise, if data is non-displayable and we're in a commandMode
+    switch (commandMode) {
     case DECIMAL_CMD:  // Decimal setting mode
       display.decimals = c;  // decimals are set by one byte
       break;
@@ -135,21 +117,14 @@ void updateBufferData()
       display.digits[3] = c | 0x80;
       break;
     }
-    // Leaving commandMode
-    // !!! If the commandMode isn't a valid command, we'll leave command mode, should be checked below?
-    commandMode = 0;
-  }
-  else  // Finally, if we weren't in command mode, if the byte isn't displayable, we'll enter command mode
-  {
+    commandMode = 0; // Leaving commandMode
+  } else { // Finally, if we weren't in command mode, if the byte isn't displayable, we'll enter command mode
     commandMode = c;  // which command mode is reflected by value of commandMode
   }
 }
 
-//Sets up the hardware pins to control the 7 segments and display type
-void setupDisplay()
-{
-  //Determine the display brightness
-  byte settingBrightness = EEPROM.read(BRIGHTNESS_ADDRESS);
+void setupDisplay() { //Sets up the hardware pins to control the 7 segments and display type
+  byte settingBrightness = EEPROM.read(BRIGHTNESS_ADDRESS); //Determine the display brightness
   if(settingBrightness > BRIGHTNESS_DEFAULT) {
     settingBrightness = BRIGHTNESS_DEFAULT; //By default, unit will be brightest
     EEPROM.write(BRIGHTNESS_ADDRESS, settingBrightness);
@@ -202,20 +177,15 @@ void setupDisplay()
 }
 
 // The display data is updated on a Timer interrupt
-ISR(TIMER1_COMPA_vect)
-{
+ISR(TIMER1_COMPA_vect) {
   noInterrupts();
-
   // if head and tail are not equal, there's data to be read from the buffer
-  if (buffer.head != buffer.tail)
-    updateBufferData();  // updateBufferData() will update the display info, or peform special commands
-
+  if (buffer.head != buffer.tail) updateBufferData();  // updateBufferData() will update the display info, or peform special commands
   interrupts();
 }
 
 // setupTimer(): Set up timer 1, which controls interval reading from the buffer
-void setupTimer()
-{
+void setupTimer() {
   // Timer 1 is se to CTC mode, 16-bit timer counts up to 0xFF
   TCCR1B = (1<<WGM12) | (1<<CS10);
   OCR1A = 0x00FF;
