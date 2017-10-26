@@ -1,25 +1,13 @@
+#define BAUDRATE        57600
 /* Serial 7 Segment Display Firmware
- Version: 3.0.1
- By: Jim Lindblom (SparkFun Electronics)
- Date: August 24, 2012
- License: This code is beerware: feel free to use it, with or without attribution,
- in your own projects. If you find it helpful, buy me a beer next time you see me
- at the local pub.
-
+ originally Version: 3.0.1 By: Jim Lindblom (SparkFun Electronics)
  Description: This firmware goes on the SparkFun Serial 7-Segment displays.
  https://www.sparkfun.com/search/results?term=serial+7+segment&what=products
-
- You can send the display serial data over either UART, SPI, or I2C. It'll
- sequentially display what it reads. There are special commands to control
- individual segments, clear the display, reset the cursor, adjust the display's
- brightness, UART baud rate, i2c address or factory reset.
-
  Note: To use the additional pins, PB6 and PB7, on the ATmega328 we have to add
  some maps to the pins_arduino.h file. This allows Arduino to identify PB6 as
  digital pin 22, and PB7 as digital pin 23. Because the Serial 7-Segment runs on
- the ATmega328's internal oscillator, these two pins open up for our use.
+ the ATmega328's internal oscillator, these two pins open up for our use.  */
 
- */
 #include <Wire.h>  // Handles I2C
 #include <EEPROM.h>  // Brightness, Baud rate, and I2C address are stored in EEPROM
 #include "settings.h"  // Defines command bytes, EEPROM addresses, display data
@@ -29,15 +17,6 @@
 #include "SevSeg.h" //Library to control generic seven segment displays
 
 SevSeg myDisplay; //Create an instance of the object
-
-//This firmware works on three different hardware layouts
-//Serial7Segment was the original and drives the segments directly from the ATmega
-//OpenSegment uses PNP and NPN transistors to drive larger displays
-//Serial7SegmentShield also drives the segments directly from the ATmega
-#define S7S            1
-#define OPENSEGMENT    2
-#define S7SHIELD       3
-#define DISPLAY_TYPE   S7S
 
 //Global variables
 unsigned int analogValue6 = 0; //These are used in analog meter mode
@@ -69,14 +48,8 @@ void setup()
   setupDisplay(); //Initialize display stuff (common cathode, digits, brightness, etc)
 
   //We need to check emergency after we have initialized the display so that we can use the display during an emergency reset
-  checkEmergencyReset(); //Look to see if the RX pin is being pulled low
-
   setupTimer();  // Setup timer to control interval reading from buffer
-  setupUART();   // initialize UART stuff (interrupts, enable, baud)
-  setupSPI();    // Initialize SPI stuff (enable, mode, interrupts)
-  setupTWI();    // Initialize I2C stuff (address, interrupt, enable)
-  setupAnalog(); // Initialize the analog inputs
-  setupMode();   // Determine which mode we should be in
+  Serial.begin(BAUDRATE);
 
   interrupts();  // Turn interrupts on, and les' go
 
@@ -88,142 +61,24 @@ void setup()
 }
 
 // The display is constantly PWM'd in the loop()
-void loop()
-{
-  if(deviceMode == MODE_DATA)
-  {
-    displayData();
-  }
-  else if(deviceMode == MODE_COUNTER)
-  {
-    displayCounter();
-  }
-  else if(deviceMode == MODE_ANALOG)
-  {
-    displayAnalog();
-  }
-
-  //We will loop if we've received a new device mode command
+void loop() {
+  myDisplay.DisplayString(display.digits, display.decimals); //(numberToDisplay, decimal point location)
+  serialEvent(); //Check the serial buffer for new data
 }
 
-//This is the normal mode where we display whatever data is coming in over UART, SPI, and I2C
-void displayData()
-{
-  while(deviceMode == MODE_DATA)
+// This is effectively the UART0 byte received interrupt routine
+// But not quite: serialEvent is only called after each loop() interation
+void serialEvent() {
+  while (Serial.available())
   {
-    //Just hang out and update the display as new data comes in
-    myDisplay.DisplayString(display.digits, display.decimals); //(numberToDisplay, decimal point location)
+    unsigned int i = (buffer.head + 1) % BUFFER_SIZE;  // read buffer head position and increment
+    unsigned char c = Serial.read();  // Read data byte into c, from UART0 data register
 
-    serialEvent(); //Check the serial buffer for new data
-  }
-}
-
-//Turn off the SPI and watch for increment pulses on the SDO pin, decrement on SDI
-void displayCounter()
-{
-  SPCR = 0; //Disable all SPI interrupts that may be turned on
-
-  int counterIncrement = SPI_MOSI; //Labeled SDI
-  int counterDecrement = SPI_MISO; //Labeled SDO
-
-  pinMode(counterIncrement, INPUT_PULLUP);
-  pinMode(counterDecrement, INPUT_PULLUP);
-
-  int counter = 0; //Watches the overall count
-  boolean incrementCounted = false; //Watches the toggle the counter pins
-  boolean decrementCounted = false;
-
-  while(deviceMode == MODE_COUNTER) //Loop until we receive a different mode command
-  {
-    //Check to see if there has been a low/high pulse on increment
-    if(digitalRead(counterIncrement) == LOW)
+    if (i != buffer.tail)  // As long as the buffer isn't full, we can store the data in buffer
     {
-      delay(1); //Check the pin 1 ms later - this is for debounce
-      myDisplay.DisplayString(display.digits, 0); //Update display so that it doesn't blink
-
-      if(digitalRead(counterIncrement) == LOW)
-      {
-        if(incrementCounted == false) //Only increment counter if this is a new pulse
-        {
-          counter++;
-          incrementCounted = true; //We have now counted this pulse
-        }
-      }
+      buffer.data[buffer.head] = c;  // Store the data into the buffer's head
+      buffer.head = i;  // update buffer head, since we stored new data
     }
-    else
-    {
-      //The increment pin is high, so sdo can be counted again
-      incrementCounted = false;
-    }
-
-    //Check to see if there has been a low/high pulse on increment
-    if(digitalRead(counterDecrement) == LOW)
-    {
-      delay(1); //Check the pin 1 ms later - this is for debounce
-      myDisplay.DisplayString(display.digits, 0); //Update display so that it doesn't blink
-
-      if(digitalRead(counterDecrement) == LOW)
-      {
-        if(decrementCounted == false) //Only increment counter if this is a new pulse
-        {
-          counter--;
-          decrementCounted = true; //We have now counted this pulse
-        }
-      }
-    }
-    else
-    {
-      //The increment pin is high, so sdo can be counted again
-      decrementCounted = false;
-    }
-
-    //Display this count
-    //char tempString[10]; //Used for sprintf
-    sprintf(display.digits, "%4d", counter); //Convert counter into a string that is right adjusted
-
-
-    //int tempCounter = counter;
-    // for(int x = 0 ; x < 4 ; x++)
-    // {
-    // display.digits[3 - x] = (tempCounter % 10); //Pull off the right most digit and store in display array
-    // tempCounter /= 10; //Shave number down by one digit
-    // }
-
-    myDisplay.DisplayString(display.digits, 0); //(numberToDisplay, no decimals during counter mode)
-
-    serialEvent(); //Check the serial buffer for new data
-  }
-}
-
-//Do nothing but analog reads
-void displayAnalog()
-{
-  while(deviceMode == MODE_ANALOG)
-  {
-    analogValue6 = analogRead(A6);
-    analogValue7 = analogRead(A7);
-
-    //Serial.print("A6: ");
-    //Serial.print(analogValue6);
-    //Serial.print(" A7: ");
-    //Serial.print(analogValue7);
-
-    //Do calculation for 1st voltage meter
-    float fvoltage6 = ((analogValue6 * 50) / (float)1024);
-    int voltage6 = round(fvoltage6);
-    display.digits[0] = voltage6 / 10;
-    display.digits[1] = voltage6 % 10;
-
-    //Do calculation for 2nd voltage meter
-    float fvoltage7 = ((analogValue7 * 50) / (float)1024);
-    int voltage7 = round(fvoltage7);
-    display.digits[2] = voltage7 / 10;
-    display.digits[3] = voltage7 % 10;
-
-    display.decimals = ((1<<DECIMAL1) | (1<<DECIMAL3)); //Turn on the decimals next to digit1 and digit3
-    myDisplay.DisplayString(display.digits, display.decimals); //(numberToDisplay, decimal point location)
-
-    serialEvent(); //Check the serial buffer for new data
   }
 }
 
@@ -263,24 +118,9 @@ void updateBufferData()
       EEPROM.write(BRIGHTNESS_ADDRESS, c);    // write the new value to EEPROM
       myDisplay.SetBrightness(c); //Set the display to this brightness level
       break;
-    case BAUD_CMD:  // Baud setting mode
-      EEPROM.write(BAUD_ADDRESS, c);  // Update EEPROM with new baud setting
-      setupUART(); //Checks to see if this baud rate is valid and turns on UART at this speed
-      break;
     case CURSOR_CMD:  // Set the cursor
       if (c <= 3)  // Limited error checking, if >3 cursor command will have no effect
         display.cursor = c;  // Update the cursor value
-      break;
-    case TWI_ADDRESS_CMD:  // Set the I2C Address
-      EEPROM.write(TWI_ADDRESS_ADDRESS, c); // Update the EEPROM value
-      setupTWI(); //Checks to see if I2C address is valid and begins I2C
-      break;
-    case MODE_CMD:  // Set the device mode (example: data, analog, counter)
-      EEPROM.write(MODE_ADDRESS, c); // Update the EEPROM value
-      setupMode(); //Checks to see if this mode is valid and then enters new mode
-      break;
-    case FACTORY_RESET_CMD:  // Factory reset
-      setDefaultSettings();  // Reset baud, brightness, and TWI address
       break;
     case DIGIT1_CMD:  // Single-digit control for digit 1
       display.digits[0] = c | 0x80;  // set msb to indicate single digit control mode
@@ -305,3 +145,79 @@ void updateBufferData()
   }
 }
 
+//Sets up the hardware pins to control the 7 segments and display type
+void setupDisplay()
+{
+  //Determine the display brightness
+  byte settingBrightness = EEPROM.read(BRIGHTNESS_ADDRESS);
+  if(settingBrightness > BRIGHTNESS_DEFAULT) {
+    settingBrightness = BRIGHTNESS_DEFAULT; //By default, unit will be brightest
+    EEPROM.write(BRIGHTNESS_ADDRESS, settingBrightness);
+  }
+  myDisplay.SetBrightness(settingBrightness); //Set the display to 100% bright
+
+  // Set the initial state of displays and decimals 'x' =  off
+  display.digits[0] = 'x';
+  display.digits[1] = 'x';
+  display.digits[2] = 'x';
+  display.digits[3] = 'x';
+  display.decimals = 0x00;  // Turn all decimals off
+  display.cursor = 0;  // Set cursor to first (left-most) digit
+
+  buffer.head = 0;  // Initialize buffer values
+  buffer.tail = 0;
+
+  //This pinout is for the original Serial7Segment layout
+  int digit1 = 16; // DIG1 = A2/16 (PC2)
+  int digit2 = 17; // DIG2 = A3/17 (PC3)
+  int digit3 = 3;  // DIG3 = D3 (PD3)
+  int digit4 = 4;  // DIG4 = D4 (PD4)
+
+  //Declare what pins are connected to the segments
+  int segA = 8;  // A = D8 (PB0)
+  int segB = 14; // B = A0 (PC0)
+  int segC = 6;  // C = D6 (PD6), shares a pin with colon cathode
+  int segD = A1; // D = A1 (PC1)
+  int segE = 23; // E = PB7 (not a standard Arduino pin: Must add PB7 as digital pin 23 to pins_arduino.h)
+  int segF = 7;  // F = D7 (PD6), shares a pin with apostrophe cathode
+  int segG = 5;  // G = D5 (PD5)
+  int segDP= 22; //DP = PB6 (not a standard Arduino pin: Must add PB6 as digital pin 22 to pins_arduino.h)
+
+  int digitColon = 2; // COL-A = D2 (PD2) (anode of colon)
+  int segmentColon = 6; // COL-C = D6 (PD6) (cathode of colon), shares a pin with C
+  int digitApostrophe = 9; // APOS-A = D9 (PB1) (anode of apostrophe)
+  int segmentApostrophe = 7; // APOS-C = D7 (PD7) (cathode of apostrophe), shares a pin with F
+
+  int numberOfDigits = 4; //Do you have a 2 or 4 digit display?
+
+  int displayType = COMMON_ANODE; //SparkFun 10mm height displays are common anode
+
+  //Initialize the SevSeg library with all the pins needed for this type of display
+  myDisplay.Begin(displayType, numberOfDigits,
+  digit1, digit2, digit3, digit4,
+  digitColon, digitApostrophe,
+  segA, segB, segC, segD, segE, segF, segG,
+  segDP,
+  segmentColon, segmentApostrophe);
+}
+
+// The display data is updated on a Timer interrupt
+ISR(TIMER1_COMPA_vect)
+{
+  noInterrupts();
+
+  // if head and tail are not equal, there's data to be read from the buffer
+  if (buffer.head != buffer.tail)
+    updateBufferData();  // updateBufferData() will update the display info, or peform special commands
+
+  interrupts();
+}
+
+// setupTimer(): Set up timer 1, which controls interval reading from the buffer
+void setupTimer()
+{
+  // Timer 1 is se to CTC mode, 16-bit timer counts up to 0xFF
+  TCCR1B = (1<<WGM12) | (1<<CS10);
+  OCR1A = 0x00FF;
+  TIMSK1 = (1<<OCIE1A);  // Enable interrupt on compare
+}
