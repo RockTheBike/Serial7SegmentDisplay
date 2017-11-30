@@ -15,7 +15,8 @@
 // git@github.com:sparkfun/SevSeg.git
 #include "SevSeg.h" //Library to control generic seven segment displays
 
-#define BUTTON_DEBOUNCE_TIME 100 // milliseconds between acceptible button presses
+#define BUTTON_DEBOUNCE_TIME 100 // minimum milliseconds between changes in button state
+#define BUTTON_REPEAT_TIME   333 // milliseconds between automatic repeats
 #define BUTTON_R             A4 // pin labeled on board as SDA
 #define BUTTON_L             A5 // pin labeled on board as SCL
 bool buttonLState = false;
@@ -72,10 +73,19 @@ void loop() {
     buttonLState = digitalRead(BUTTON_L);
     if (! buttonLState) buttonLPressed(); // event of button being pressed
   }
+  if ((! digitalRead(BUTTON_L)) && (millis() - lastLButtonEvent > BUTTON_REPEAT_TIME)) {
+    lastLButtonEvent = millis(); // reset counter
+    buttonLPressed(); // repeat
+  }
+
   if ((digitalRead(BUTTON_R) != buttonRState) && (millis() - lastRButtonEvent > BUTTON_DEBOUNCE_TIME)) {
     lastRButtonEvent = millis(); // reset counter
     buttonRState = digitalRead(BUTTON_R);
     if (! buttonRState) buttonRPressed(); // event of button being pressed
+  }
+  if ((! digitalRead(BUTTON_R)) && (millis() - lastRButtonEvent > BUTTON_REPEAT_TIME)) {
+    lastRButtonEvent = millis(); // reset counter
+    buttonRPressed(); // repeat
   }
 }
 
