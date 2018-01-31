@@ -1,4 +1,7 @@
 #define BAUDRATE        57600
+// TO UPLOAD, ADD THIS TO ARDUINO BOARDS MANAGER:
+// https://raw.githubusercontent.com/sparkfun/Arduino_Boards/master/IDE_Board_Manager/package_sparkfun_index.json
+
 /* Serial 7 Segment Display Firmware
  originally Version: 3.0.1 By: Jim Lindblom (SparkFun Electronics)
  Description: This firmware goes on the SparkFun Serial 7-Segment displays.
