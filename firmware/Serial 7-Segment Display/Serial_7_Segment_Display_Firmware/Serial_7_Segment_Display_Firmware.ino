@@ -1,3 +1,4 @@
+// /home/user/arduino-1.6.11/hardware/tools/avr/bin/avrdude -C/home/user/arduino-1.6.11/hardware/tools/avr/etc/avrdude.conf -v -V -patmega328p -carduino -P/dev/ttyUSB0 -b57600 -D -Uflash:w:2c17c0c60f931e198b62e779bb184f98f3baedbf.hex:i
 #define BAUDRATE        57600
 // TO UPLOAD, ADD THIS TO ARDUINO BOARDS MANAGER:
 // https://raw.githubusercontent.com/sparkfun/Arduino_Boards/master/IDE_Board_Manager/package_sparkfun_index.json
