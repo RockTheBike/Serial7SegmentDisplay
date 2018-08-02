@@ -1,0 +1,17 @@
+echo this script uploads firmware to a handlebar-mounted four-digit LED numeric display with two buttons (on a mac)
+echo connect the hardware using an FTDI serial cable through the six-pin header
+echo https://github.com/RockTheBike/Serial7SegmentDisplay/commit/51bb53bc51fd6782e61669f44957489cc7adf8ee
+HEXFILE=/Users/shop/bin/2c17c0c60f931e198b62e779bb184f98f3baedbf.hex
+AVRDUDE=/Applications/Arduino.app/Contents/Java/hardware/tools/avr/bin/avrdude
+AVRDUDECONF=-C/Applications/Arduino.app/Contents/Java/hardware/tools/avr/etc/avrdude.conf
+FTDICABLE=`ls /dev/tty.usbserial*`
+$AVRDUDE $AVRDUDECONF -v -V -patmega328p -carduino -P$FTDICABLE -b57600 -D -Uflash:w:$HEXFILE:i
+if [ $? -ne 0 ]
+        then
+        echo "unfortunately we failed to flash to the chip"
+        say "unfortunately we failed to flash to the chip"
+        exit 1
+else
+        echo "successfully programmed"
+        say "successfully programmed"
+fi
