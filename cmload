@@ -6,8 +6,10 @@ AVRDUDE=/Applications/Arduino.app/Contents/Java/hardware/tools/avr/bin/avrdude
 AVRDUDECONF=-C/Applications/Arduino.app/Contents/Java/hardware/tools/avr/etc/avrdude.conf
 FTDICABLE=`ls /dev/tty.usbserial*`
 $AVRDUDE $AVRDUDECONF -v -V -patmega328p -carduino -P$FTDICABLE -b57600 -D -Uflash:w:$HEXFILE:i
-if [ $? -ne 0 ]
+RESULT=$?
+if [ $RESULT -ne 0 ]
         then
+        echo exited with $RESULT
         echo "unfortunately we failed to flash to the chip"
         say "unfortunately we failed to flash to the chip"
         exit 1
